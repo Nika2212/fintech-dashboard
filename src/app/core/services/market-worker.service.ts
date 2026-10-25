@@ -1,4 +1,6 @@
 import {Injectable} from '@angular/core';
 
-@Injectable({ providedIn: 'root' })
-export class MarketWorkerService {}
+@Injectable({providedIn: 'root'})
+export class MarketWorkerService {
+
+}
