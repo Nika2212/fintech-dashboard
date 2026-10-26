@@ -1,8 +1,5 @@
 import {Injectable} from '@angular/core';
 import {IWorkerResponse} from '../../shared/interfaces/worker-response.interface';
-import {WorkerStateTypes} from '../enums/worker-state-types.enum';
-import {WorkerCommands} from '../enums/worker-commands.enum';
-import {IProducerSettings} from '../../shared/interfaces/producer-settings.interface';
 import {Observable, Subject} from 'rxjs';
 import {IWorkerRequest} from '../../shared/interfaces/worker-request.interface';
 
@@ -17,7 +14,7 @@ export class MarketWorkerService {
   }
 
   private initWorker(): void {
-    this.worker = new Worker(new URL('../workers/market-worker.worker', import.meta.url), { type: 'module' });
+    this.worker = new Worker(new URL('../workers/market.worker', import.meta.url), { type: 'module' });
   }
 
   private setEvents(): void {
