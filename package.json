@@ -6,7 +6,11 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "wasm:build": "asc --config wasm/asconfig.json --target release",
+    "wasm:build:debug": "asc --config wasm/asconfig.json --target debug",
+    "wasm:test": "npm run wasm:build && vitest run --config wasm/vitest.config.mts",
+    "wasm:coverage": "npm run wasm:build && vitest run --config wasm/vitest.config.mts --coverage"
   },
   "prettier": {
     "printWidth": 100,
@@ -48,6 +52,8 @@
     "@angular/build": "^21.1.2",
     "@angular/cli": "^21.1.2",
     "@angular/compiler-cli": "^21.1.0",
+    "@vitest/coverage-v8": "^4.1.12",
+    "assemblyscript": "^0.28.20",
     "jsdom": "^27.1.0",
     "less": "^4.9.1",
     "typescript": "~5.9.2",

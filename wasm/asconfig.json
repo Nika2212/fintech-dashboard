@@ -1,0 +1,21 @@
+{
+  "entries": ["assembly/index.ts"],
+  "targets": {
+    "release": {
+      "outFile": "build/market-generator.wasm",
+      "textFile": "build/market-generator.wat",
+      "optimizeLevel": 3,
+      "shrinkLevel": 0
+    },
+    "debug": {
+      "outFile": "build/market-generator.debug.wasm",
+      "textFile": "build/market-generator.debug.wat",
+      "sourceMap": true,
+      "debug": true
+    }
+  },
+  "options": {
+    "bindings": "raw",
+    "runtime": "incremental"
+  }
+}
