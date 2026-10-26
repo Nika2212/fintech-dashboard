@@ -14,14 +14,13 @@ import {IWorkerResponse} from '../../shared/interfaces/worker-response.interface
 import {WorkerStateTypes} from '../enums/worker-state-types.enum';
 import {IMarketSample} from '../../shared/interfaces/market-sample.interface';
 import {IMetrics} from '../../shared/interfaces/metrics.interface';
-import {IMetricPackage} from '../../shared/interfaces/metric-package.interface';
 
 @Injectable({providedIn: 'root'})
 export class MarketService {
   private readonly marketWorkerService: MarketWorkerService = inject(MarketWorkerService);
 
   private settings: IProducerSettings = SETTINGS_DEFAULT;
-  private metricPackage: IMetricPackage | null = null;
+
 
   constructor() {
     this.setEvents();
