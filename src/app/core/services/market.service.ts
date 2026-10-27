@@ -1,76 +1,94 @@
-import { DestroyRef, inject, Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { BehaviorSubject, filter, Observable } from 'rxjs';
 import { MarketWorkerService } from './market-worker.service';
 import { WorkerCommands } from '../enums/worker-commands.enum';
-import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
-import { BehaviorSubject, filter, Observable, Subject, takeUntil } from 'rxjs';
-import {
-  DEFAULT_SETTINGS,
-  DEFAULT_INSTRUMENT_COUNT,
-  DEFAULT_BATCH_INTERVAL_MS,
-  DEFAULT_UPDATES_PER_BATCH, PRE_RUN_ID
-} from '../constants/defaults.constant';
-import { IWorkerRequest } from '../../shared/interfaces/worker-request.interface';
-import { IWorkerResponse } from '../../shared/interfaces/worker-response.interface';
 import { WorkerResponses } from '../enums/worker-responses.enum';
-import { IMarketUpdate } from '../../shared/interfaces/market-update.interface';
-import { IInstrumentMetrics } from '../../shared/interfaces/instrument-metrics.interface';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { WorkerStatuses } from '../enums/worker-statuses.enum';
+import { DEFAULT_SETTINGS, PRE_RUN_ID } from '../constants/defaults.constant';
+import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
+import { IWorkerResponse } from '../../shared/interfaces/worker-response.interface';
+import { IInstrumentMetrics } from '../../shared/interfaces/instrument-metrics.interface';
 
 @Injectable({ providedIn: 'root' })
 export class MarketService {
   private readonly marketWorkerService: MarketWorkerService = inject(MarketWorkerService);
-  private readonly destroyRef: DestroyRef = inject(DestroyRef);
 
   private readonly instrumentMetrics$: BehaviorSubject<IInstrumentMetrics[]> = new BehaviorSubject<IInstrumentMetrics[]>([]);
   private readonly workerStatus$: BehaviorSubject<WorkerStatuses> = new BehaviorSubject<WorkerStatuses>(WorkerStatuses.IDLE);
+  private readonly errorMessage$: BehaviorSubject<string | null> = new BehaviorSubject<string | null>(null);
+  private readonly producerSettings$: BehaviorSubject<IProducerSettings> = new BehaviorSubject<IProducerSettings>({ ...DEFAULT_SETTINGS });
   private runId: number = PRE_RUN_ID;
-  private producerSettings: IProducerSettings = DEFAULT_SETTINGS;
 
   constructor() {
     this.setEvents();
     this.apply();
   }
 
-  private setEvents(): void {
-    this.marketWorkerService.onMessage()
-      .pipe(
-        filter((response: IWorkerResponse) => response?.runId === this.runId),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((response: IWorkerResponse) => {
-        if (!response || response.state === WorkerResponses.FAILED) {
-          this.workerStatus$.next(WorkerStatuses.FAILED);
-          this.onFailed(response?.message || 'Worker failed.');
-        } else if (response.state === WorkerResponses.UPDATE && Array.isArray(response.instruments)) {
-          this.workerStatus$.next(WorkerStatuses.RUNNING);
-          this.onUpdate(response.instruments);
-        }
-      });
+  public getInstrumentMetrics(): Observable<IInstrumentMetrics[]> {
+    return this.instrumentMetrics$.asObservable();
   }
 
-  private onFailed(message: string): void {
-    console.error(message);
+  public getWorkerStatus(): Observable<WorkerStatuses> {
+    return this.workerStatus$.asObservable();
   }
 
-  private onUpdate(instruments: IInstrumentMetrics[]): void {
-    this.instrumentMetrics$.next(instruments);
+  public getErrorMessage(): Observable<string | null> {
+    return this.errorMessage$.asObservable();
   }
 
-  public apply(): void {
+  public getProducerSettings(): Observable<IProducerSettings> {
+    return this.producerSettings$.asObservable();
+  }
+
+  public apply(settings: IProducerSettings = this.producerSettings$.value): void {
     this.runId++;
-    this.workerStatus$.next(WorkerStatuses.RUNNING);
+    this.producerSettings$.next({ ...settings });
     this.instrumentMetrics$.next([]);
+    this.errorMessage$.next(null);
+    this.workerStatus$.next(WorkerStatuses.RUNNING);
+
     this.marketWorkerService.dispatch({
-      runId: this.runId,
       command: WorkerCommands.APPLY,
-      settings: this.producerSettings,
+      runId: this.runId,
+      settings: this.producerSettings$.value,
     });
   }
 
-  public pause(): void {}
+  public pause(): void {
+    if (this.workerStatus$.value !== WorkerStatuses.RUNNING) {
+      return;
+    }
 
-  public resume(): void {}
+    this.marketWorkerService.dispatch({ command: WorkerCommands.PAUSE });
+    this.workerStatus$.next(WorkerStatuses.PAUSED);
+  }
 
-  public setProducerSettings(settings: IProducerSettings): void {}
+  public resume(): void {
+    if (this.workerStatus$.value !== WorkerStatuses.PAUSED) {
+      return;
+    }
+
+    this.marketWorkerService.dispatch({ command: WorkerCommands.RESUME });
+    this.workerStatus$.next(WorkerStatuses.RUNNING);
+  }
+
+  private setEvents(): void {
+    this.marketWorkerService.onMessage()
+      .pipe(
+        filter((response: IWorkerResponse) => response.runId === this.runId),
+        takeUntilDestroyed(),
+      )
+      .subscribe((response: IWorkerResponse) => {
+        switch (response.state) {
+          case WorkerResponses.UPDATE:
+            this.instrumentMetrics$.next(response.instruments ?? []);
+            break;
+          case WorkerResponses.FAILED:
+            this.errorMessage$.next(response.message ?? 'Worker failed.');
+            this.workerStatus$.next(WorkerStatuses.FAILED);
+            break;
+        }
+      });
+  }
 }

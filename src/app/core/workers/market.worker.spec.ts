@@ -7,8 +7,6 @@ import { IProducerSettings } from '../../shared/interfaces/producer-settings.int
 
 const SETTINGS: IProducerSettings = { instrumentCount: 2, updatesPerBatch: 2, batchIntervalMs: 100 };
 
-// Two trades for instrument 0 from the task's worked example:
-// 10 @ $100.00 on an empty book, then 30 @ $102.00 with a book of $101.96 x 600 / $102.00 x 400.
 const EXAMPLE_BATCH = [0, 10000, 10, 10000, 10001, 0, 0, 0, 10200, 30, 10196, 10200, 600, 400];
 
 interface IFakeGenerator {
@@ -19,11 +17,6 @@ interface IFakeGenerator {
 const BATCH_HEADER_POINTER = 16;
 const BATCH_DATA_POINTER = 64;
 
-/**
- * Stands in for the instantiated Wasm module. The generated bindings read an Int32Array result
- * from linear memory as a header (data pointer at +4, byte length at +8), so each batch returned
- * by `generator.generateBatch` is written there and the bindings run unchanged.
- */
 function fakeWasmExports(generator: IFakeGenerator): object {
   const memory = { buffer: new ArrayBuffer(64 * 1024) };
   const view = new DataView(memory.buffer);
@@ -47,10 +40,12 @@ describe('market.worker', () => {
   let compileStreaming: Mock;
   let instantiate: Mock;
   let generator: IFakeGenerator;
+  let runId: number;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.resetModules();
+    runId = 0;
 
     generator = {
       init: vi.fn(),
@@ -92,8 +87,14 @@ describe('market.worker', () => {
     return responses()[responses().length - 1];
   }
 
-  function apply(settings: IProducerSettings | undefined = SETTINGS): Promise<void> {
-    return send({ command: WorkerCommands.APPLY, settings });
+  function apply(settings: IProducerSettings | null = SETTINGS): Promise<void> {
+    runId++;
+    return send({ command: WorkerCommands.APPLY, runId, settings: settings ?? undefined });
+  }
+
+  function applyNow(): void {
+    runId++;
+    listener({ data: { command: WorkerCommands.APPLY, runId, settings: SETTINGS } } as MessageEvent<IWorkerRequest>);
   }
 
   describe('loading', () => {
@@ -132,49 +133,83 @@ describe('market.worker', () => {
       compileStreaming.mockReturnValue(new Promise((resolve) => (finishLoading = resolve)));
       await startWorker();
 
-      listener({ data: { command: WorkerCommands.APPLY, settings: SETTINGS } } as MessageEvent);
-      listener({ data: { command: WorkerCommands.APPLY, settings: SETTINGS } } as MessageEvent);
+      applyNow();
+      applyNow();
       finishLoading({});
-      await vi.advanceTimersByTimeAsync(SETTINGS.batchIntervalMs);
+      await vi.advanceTimersByTimeAsync(SETTINGS.batchIntervalMs * 3);
 
       expect(generator.init).toHaveBeenCalledTimes(1);
-      expect(responses()).toHaveLength(2);
+      expect(responses()).toHaveLength(4);
       expect(responses().every((response) => response.runId === 2)).toBe(true);
+    });
+
+    it('reports a failed load once, for the latest run only', async () => {
+      let failLoading: (reason: Error) => void = () => undefined;
+      compileStreaming.mockReturnValue(new Promise((_, reject) => (failLoading = reject)));
+      await startWorker();
+
+      applyNow();
+      applyNow();
+      failLoading(new Error('Wasm is not available'));
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(responses()).toEqual([
+        { runId: 2, state: WorkerResponses.FAILED, message: 'Wasm is not available' },
+      ]);
     });
   });
 
   describe('request validation', () => {
     beforeEach(startWorker);
 
-    it('rejects an unknown command', async () => {
-      await send({ command: 'restart' as WorkerCommands, settings: SETTINGS });
+    it('rejects an unknown command under the pre-run id', async () => {
+      await send({ command: 'restart' } as unknown as IWorkerRequest);
 
       expect(responses()).toEqual([
         { runId: 0, state: WorkerResponses.FAILED, message: 'Invalid command type' },
       ]);
     });
 
-    it('rejects the first command when no settings were ever provided', async () => {
-      await send({ command: WorkerCommands.APPLY });
+    it('rejects the first apply when no settings were ever provided', async () => {
+      await apply(null);
 
-      expect(lastResponse().message).toBe('No settings were provided');
+      expect(lastResponse()).toEqual({
+        runId: 1,
+        state: WorkerResponses.FAILED,
+        message: 'No settings were provided',
+      });
       expect(generator.init).not.toHaveBeenCalled();
     });
 
-    it('rejects invalid settings with the validator message and does not start a run', async () => {
+    it('rejects invalid settings under the new run id and does not start a run', async () => {
       await apply({ ...SETTINGS, instrumentCount: 51 });
 
       expect(lastResponse()).toEqual({
-        runId: 0,
+        runId: 1,
         state: WorkerResponses.FAILED,
         message: 'Instrument count should be integer and in range 1 - 50',
       });
       expect(generator.init).not.toHaveBeenCalled();
     });
 
+    it('stops the current run when a new apply has invalid settings', async () => {
+      await apply();
+      await apply({ ...SETTINGS, updatesPerBatch: 0 });
+      await vi.advanceTimersByTimeAsync(SETTINGS.batchIntervalMs * 3);
+
+      expect(responses()).toHaveLength(2);
+      expect(lastResponse()).toMatchObject({ runId: 2, state: WorkerResponses.FAILED });
+
+      await send({ command: WorkerCommands.RESUME });
+      expect(responses()).toHaveLength(2);
+    });
+
     it('ignores settings sent with commands other than apply', async () => {
       await apply();
-      await send({ command: WorkerCommands.PAUSE, settings: { ...SETTINGS, updatesPerBatch: 7 } });
+      await send({
+        command: WorkerCommands.PAUSE,
+        settings: { ...SETTINGS, updatesPerBatch: 7 },
+      } as IWorkerRequest);
       await send({ command: WorkerCommands.RESUME });
 
       expect(generator.generateBatch).toHaveBeenLastCalledWith(SETTINGS.updatesPerBatch);
@@ -202,10 +237,12 @@ describe('market.worker', () => {
       expect(generator.generateBatch).toHaveBeenCalledWith(SETTINGS.updatesPerBatch);
     });
 
-    it('tags every update with the current run id', async () => {
-      await apply();
+    it('tags every update with the run id it was sent', async () => {
+      await send({ command: WorkerCommands.APPLY, runId: 7, settings: SETTINGS });
+      await vi.advanceTimersByTimeAsync(SETTINGS.batchIntervalMs);
 
-      expect(lastResponse().runId).toBe(1);
+      expect(responses()).toHaveLength(2);
+      expect(responses().every((response) => response.runId === 7)).toBe(true);
       expect(lastResponse().state).toBe(WorkerResponses.UPDATE);
     });
 
@@ -225,7 +262,7 @@ describe('market.worker', () => {
 
     it('reuses the last applied settings when apply is sent without settings', async () => {
       await apply();
-      await send({ command: WorkerCommands.APPLY });
+      await apply(null);
 
       expect(generator.init).toHaveBeenLastCalledWith(SETTINGS.instrumentCount, expect.any(Number));
       expect(lastResponse().runId).toBe(2);
@@ -261,15 +298,51 @@ describe('market.worker', () => {
       expect(responses()).toHaveLength(2);
     });
 
+    it('stays paused when pause arrives while Wasm is loading', async () => {
+      let finishLoading: (module: object) => void = () => undefined;
+      compileStreaming.mockReturnValue(new Promise((resolve) => (finishLoading = resolve)));
+      vi.resetModules();
+      await startWorker();
+
+      applyNow();
+      await send({ command: WorkerCommands.PAUSE });
+      finishLoading({});
+      await vi.advanceTimersByTimeAsync(SETTINGS.batchIntervalMs * 3);
+
+      expect(generator.init).toHaveBeenCalledTimes(1);
+      expect(responses()).toEqual([]);
+
+      await send({ command: WorkerCommands.RESUME });
+      await vi.advanceTimersByTimeAsync(SETTINGS.batchIntervalMs);
+
+      expect(responses()).toHaveLength(2);
+      expect(lastResponse().runId).toBe(1);
+    });
+
+    it('starts normally when resume follows a pause while Wasm is loading', async () => {
+      let finishLoading: (module: object) => void = () => undefined;
+      compileStreaming.mockReturnValue(new Promise((resolve) => (finishLoading = resolve)));
+      vi.resetModules();
+      await startWorker();
+
+      applyNow();
+      await send({ command: WorkerCommands.PAUSE });
+      await send({ command: WorkerCommands.RESUME });
+      finishLoading({});
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(responses()).toHaveLength(1);
+    });
+
     it('does nothing on resume before any run was started', async () => {
-      await send({ command: WorkerCommands.RESUME, settings: SETTINGS });
+      await send({ command: WorkerCommands.RESUME });
       await vi.advanceTimersByTimeAsync(SETTINGS.batchIntervalMs);
 
       expect(responses()).toEqual([]);
     });
 
     it('does nothing on pause when nothing is running', async () => {
-      await send({ command: WorkerCommands.PAUSE, settings: SETTINGS });
+      await send({ command: WorkerCommands.PAUSE });
 
       expect(responses()).toEqual([]);
     });

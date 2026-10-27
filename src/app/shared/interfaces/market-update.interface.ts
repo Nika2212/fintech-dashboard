@@ -6,5 +6,4 @@ export interface IMarketUpdate {
   askPriceCents: number;
   bidQuantity: number;
   askQuantity: number;
-  timestamp: number;
 }

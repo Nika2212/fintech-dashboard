@@ -36,6 +36,7 @@ yarn-error.log
 /coverage
 /wasm/build
 /wasm/coverage
+/wasm/node_modules
 /libpeerconnection.log
 testem.log
 /typings

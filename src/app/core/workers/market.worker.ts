@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { IWorkerRequest } from '../../shared/interfaces/worker-request.interface';
+import { IApplyRequest, IWorkerRequest } from '../../shared/interfaces/worker-request.interface';
 import { WorkerCommands } from '../enums/worker-commands.enum';
 import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
 import { validateCommand, validateSettings } from '../utils/producer-settings-validator.util';
@@ -15,11 +15,17 @@ import { IInstrumentMetrics } from '../../shared/interfaces/instrument-metrics.i
 
 type MarketGenerator = Awaited<ReturnType<typeof instantiate>>;
 
-let lastAppliedSettings: IProducerSettings;
-let lastRunId!: number;
+interface IActiveRun {
+  generator: MarketGenerator;
+  settings: IProducerSettings;
+}
+
+let lastAppliedSettings: IProducerSettings | null = null;
+let lastRunId: number = PRE_RUN_ID;
 let timerId: number | null = null;
-let generator: MarketGenerator | null = null;
-let totals: IInstrumentTotals[] = createTotals(0);
+let activeRun: IActiveRun | null = null;
+let isPaused: boolean = false;
+let totals: IInstrumentTotals[] = createTotals();
 
 const generatorReady: Promise<MarketGenerator> = loadGenerator();
 
@@ -31,30 +37,16 @@ async function loadGenerator(): Promise<MarketGenerator> {
 }
 
 addEventListener('message', (event: MessageEvent<IWorkerRequest>) => {
-  const actionValidation: IValidation = validateCommand(event.data.command);
+  const request: IWorkerRequest = event.data;
+  const commandValidation: IValidation = validateCommand(request.command);
 
-  // TODO : - Wrap into single entity checking
-  if (!actionValidation.isValid) {
-    return handleError(actionValidation.message);
+  if (!commandValidation.isValid) {
+    return handleError(commandValidation.message);
   }
 
-  if (!lastAppliedSettings && !event.data.settings) {
-    return handleError('No settings were provided');
-  }
-
-  if (event.data.command === WorkerCommands.APPLY && event.data.settings) {
-    const settingsValidation: IValidation = validateSettings(event.data.settings);
-
-    if (!settingsValidation.isValid) {
-      return handleError(settingsValidation.message);
-    }
-
-    lastAppliedSettings = event.data.settings;
-  }
-
-  switch (event.data.command) {
+  switch (request.command) {
     case WorkerCommands.APPLY:
-      void onApply(event.data.runId);
+      onApply(request);
       break;
     case WorkerCommands.PAUSE:
       onPause();
@@ -69,30 +61,55 @@ function emitEvent(event: IWorkerResponse): void {
   postMessage(event);
 }
 
-async function onApply(runId: number): Promise<void> {
-  generator = null;
+function onApply(request: IApplyRequest): void {
+  lastRunId = request.runId;
+  activeRun = null;
+  isPaused = false;
+  stopTimer();
 
-  if (timerId) {
-    clearInterval(timerId);
-    timerId = null;
+  const settings: IProducerSettings | null = request.settings ?? lastAppliedSettings;
+
+  if (!settings) {
+    return handleError('No settings were provided');
   }
 
-  totals = createTotals(lastAppliedSettings.instrumentCount);
+  const settingsValidation: IValidation = validateSettings(settings);
 
+  if (!settingsValidation.isValid) {
+    return handleError(settingsValidation.message);
+  }
+
+  lastAppliedSettings = settings;
+  totals = createTotals(settings.instrumentCount);
+
+  void startRun(request.runId, settings);
+}
+
+async function startRun(runId: number, settings: IProducerSettings): Promise<void> {
   try {
     const loaded = await generatorReady;
 
-    loaded.init(lastAppliedSettings.instrumentCount, crypto.getRandomValues(new Uint32Array(1))[0]);
-    generator = loaded;
+    if (runId !== lastRunId) return;
 
-    lastRunId = runId;
-    run(loaded);
+    loaded.init(settings.instrumentCount, crypto.getRandomValues(new Uint32Array(1))[0]);
+    activeRun = { generator: loaded, settings };
+
+    if (!isPaused) {
+      run(activeRun);
+    }
   } catch (error) {
+    if (runId !== lastRunId) return;
+
     handleError(error instanceof Error ? error.message : 'Failed to load the market generator');
   }
 }
 
 function onPause(): void {
+  isPaused = true;
+  stopTimer();
+}
+
+function stopTimer(): void {
   if (timerId !== null) {
     clearInterval(timerId);
     timerId = null;
@@ -100,19 +117,21 @@ function onPause(): void {
 }
 
 function onResume(): void {
-  if (timerId !== null || !generator) {
+  isPaused = false;
+
+  if (timerId !== null || !activeRun) {
     return;
   }
 
-  run(generator);
+  run(activeRun);
 }
 
-function run(generator: MarketGenerator): void {
-  timerId = setInterval(() => tick(generator, lastAppliedSettings), lastAppliedSettings.batchIntervalMs);
-  tick(generator, lastAppliedSettings);
+function run(current: IActiveRun): void {
+  timerId = setInterval(() => tick(current), current.settings.batchIntervalMs);
+  tick(current);
 }
 
-function tick(generator: MarketGenerator, settings: IProducerSettings): void {
+function tick({ generator, settings }: IActiveRun): void {
   try {
     const batch: Int32Array = generator.generateBatch(settings.updatesPerBatch);
     const updates: IMarketUpdate[] = toMarketUpdates(batch);
@@ -125,7 +144,7 @@ function tick(generator: MarketGenerator, settings: IProducerSettings): void {
   }
 }
 
-function createTotals(instrumentCount: number): IInstrumentTotals[] {
+function createTotals(instrumentCount: number = 0): IInstrumentTotals[] {
   return Array.from({ length: instrumentCount }, () => ({
     hasData: false,
     lastTradePriceCents: 0,
@@ -139,7 +158,6 @@ function createTotals(instrumentCount: number): IInstrumentTotals[] {
 }
 
 function toMarketUpdates(batch: Int32Array): IMarketUpdate[] {
-  const timestamp = Date.now();
   const updates: IMarketUpdate[] = [];
   for (let i = 0; i < batch.length; i += FIELDS_PER_UPDATE) {
     updates.push({
@@ -150,7 +168,6 @@ function toMarketUpdates(batch: Int32Array): IMarketUpdate[] {
       askPriceCents: batch[i + 4],
       bidQuantity: batch[i + 5],
       askQuantity: batch[i + 6],
-      timestamp,
     });
   }
   return updates;
@@ -187,10 +204,7 @@ function toMetrics(totals: IInstrumentTotals[]): IInstrumentMetrics[] {
 }
 
 function handleError(message: string): void {
-  if (timerId) {
-    clearInterval(timerId);
-    timerId = null;
-  }
+  stopTimer();
 
   emitEvent({ runId: lastRunId, state: WorkerResponses.FAILED, message: message });
 }

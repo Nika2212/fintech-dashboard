@@ -1,4 +1,3 @@
-import { IMarketUpdate } from './market-update.interface';
 import { WorkerResponses } from '../../core/enums/worker-responses.enum';
 import { IInstrumentMetrics } from './instrument-metrics.interface';
 

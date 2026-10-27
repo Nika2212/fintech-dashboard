@@ -1,8 +1,14 @@
 import { WorkerCommands } from '../../core/enums/worker-commands.enum';
 import { IProducerSettings } from './producer-settings.interface';
 
-export interface IWorkerRequest {
+export interface IApplyRequest {
+  command: WorkerCommands.APPLY;
   runId: number;
-  command: WorkerCommands;
   settings?: IProducerSettings;
 }
+
+export interface IControlRequest {
+  command: WorkerCommands.PAUSE | WorkerCommands.RESUME;
+}
+
+export type IWorkerRequest = IApplyRequest | IControlRequest;
