@@ -6,7 +6,7 @@ import { IProducerSettings } from '../../shared/interfaces/producer-settings.int
 import { validateCommand, validateSettings } from '../utils/producer-settings-validator.util';
 import { IValidation } from '../../shared/interfaces/validation.interface';
 import { IWorkerResponse } from '../../shared/interfaces/worker-response.interface';
-import { WorkerStateTypes } from '../enums/worker-state-types.enum';
+import { WorkerResponses } from '../enums/worker-responses.enum';
 import { FIELDS_PER_UPDATE, PRE_RUN_ID } from '../constants/defaults.constant';
 import { instantiate } from '../../../../wasm/build/market-generator.js';
 import { IMarketUpdate } from '../../shared/interfaces/market-update.interface';
@@ -16,7 +16,7 @@ import { IInstrumentMetrics } from '../../shared/interfaces/instrument-metrics.i
 type MarketGenerator = Awaited<ReturnType<typeof instantiate>>;
 
 let lastAppliedSettings: IProducerSettings;
-let lastRunId: number = PRE_RUN_ID;
+let lastRunId!: number;
 let timerId: number | null = null;
 let generator: MarketGenerator | null = null;
 let totals: IInstrumentTotals[] = createTotals(0);
@@ -54,7 +54,7 @@ addEventListener('message', (event: MessageEvent<IWorkerRequest>) => {
 
   switch (event.data.command) {
     case WorkerCommands.APPLY:
-      void onApply();
+      void onApply(event.data.runId);
       break;
     case WorkerCommands.PAUSE:
       onPause();
@@ -69,27 +69,23 @@ function emitEvent(event: IWorkerResponse): void {
   postMessage(event);
 }
 
-async function onApply(): Promise<void> {
-  lastRunId++;
-  generator = null
+async function onApply(runId: number): Promise<void> {
+  generator = null;
 
   if (timerId) {
     clearInterval(timerId);
     timerId = null;
   }
 
-  const currentRunId: number = lastRunId;
-
   totals = createTotals(lastAppliedSettings.instrumentCount);
 
   try {
     const loaded = await generatorReady;
 
-    if (currentRunId !== lastRunId) return;
-
     loaded.init(lastAppliedSettings.instrumentCount, crypto.getRandomValues(new Uint32Array(1))[0]);
     generator = loaded;
 
+    lastRunId = runId;
     run(loaded);
   } catch (error) {
     handleError(error instanceof Error ? error.message : 'Failed to load the market generator');
@@ -123,7 +119,7 @@ function tick(generator: MarketGenerator, settings: IProducerSettings): void {
 
     applyUpdates(totals, updates);
 
-    emitEvent({ runId: lastRunId, state: WorkerStateTypes.UPDATE, instruments: toMetrics(totals) });
+    emitEvent({ runId: lastRunId, state: WorkerResponses.UPDATE, instruments: toMetrics(totals) });
   } catch (error) {
     handleError(error instanceof Error ? error.message : 'Failed to execute tick');
   }
@@ -196,5 +192,5 @@ function handleError(message: string): void {
     timerId = null;
   }
 
-  emitEvent({ runId: lastRunId, state: WorkerStateTypes.FAILED, message: message });
+  emitEvent({ runId: lastRunId, state: WorkerResponses.FAILED, message: message });
 }

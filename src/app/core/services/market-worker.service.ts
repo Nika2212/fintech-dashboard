@@ -3,8 +3,6 @@ import { IWorkerResponse } from '../../shared/interfaces/worker-response.interfa
 import { Observable, Subject } from 'rxjs';
 import { IWorkerRequest } from '../../shared/interfaces/worker-request.interface';
 
-const WORKER_URL: string = '../workers/market.worker';
-
 @Injectable({ providedIn: 'root' })
 export class MarketWorkerService {
   private worker: Worker | null = null;
@@ -16,7 +14,7 @@ export class MarketWorkerService {
   }
 
   private initWorker(): void {
-    this.worker = new Worker(new URL(WORKER_URL, import.meta.url), { type: 'module' });
+    this.worker = new Worker(new URL('../workers/market.worker', import.meta.url), { type: 'module' });
   }
 
   private setEvents(): void {

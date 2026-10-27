@@ -1,10 +1,10 @@
 import { IMarketUpdate } from './market-update.interface';
-import { WorkerStateTypes } from '../../core/enums/worker-state-types.enum';
+import { WorkerResponses } from '../../core/enums/worker-responses.enum';
 import { IInstrumentMetrics } from './instrument-metrics.interface';
 
 export interface IWorkerResponse {
   runId: number;
-  state: WorkerStateTypes;
+  state: WorkerResponses;
   instruments?: IInstrumentMetrics[];
   message?: string;
 }

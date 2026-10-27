@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { WorkerCommands } from '../enums/worker-commands.enum';
-import { WorkerStateTypes } from '../enums/worker-state-types.enum';
+import { WorkerResponses } from '../enums/worker-responses.enum';
 import { IWorkerRequest } from '../../shared/interfaces/worker-request.interface';
 import { IWorkerResponse } from '../../shared/interfaces/worker-response.interface';
 import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
@@ -114,7 +114,7 @@ describe('market.worker', () => {
 
       expect(lastResponse()).toEqual({
         runId: 1,
-        state: WorkerStateTypes.FAILED,
+        state: WorkerResponses.FAILED,
         message: 'Wasm is not available',
       });
     });
@@ -150,7 +150,7 @@ describe('market.worker', () => {
       await send({ command: 'restart' as WorkerCommands, settings: SETTINGS });
 
       expect(responses()).toEqual([
-        { runId: 0, state: WorkerStateTypes.FAILED, message: 'Invalid command type' },
+        { runId: 0, state: WorkerResponses.FAILED, message: 'Invalid command type' },
       ]);
     });
 
@@ -166,7 +166,7 @@ describe('market.worker', () => {
 
       expect(lastResponse()).toEqual({
         runId: 0,
-        state: WorkerStateTypes.FAILED,
+        state: WorkerResponses.FAILED,
         message: 'Instrument count should be integer and in range 1 - 50',
       });
       expect(generator.init).not.toHaveBeenCalled();
@@ -206,7 +206,7 @@ describe('market.worker', () => {
       await apply();
 
       expect(lastResponse().runId).toBe(1);
-      expect(lastResponse().state).toBe(WorkerStateTypes.UPDATE);
+      expect(lastResponse().state).toBe(WorkerResponses.UPDATE);
     });
 
     it('starts a new run with fresh totals and stops the previous timer', async () => {
@@ -288,7 +288,7 @@ describe('market.worker', () => {
       expect(responses()).toEqual([
         {
           runId: 1,
-          state: WorkerStateTypes.FAILED,
+          state: WorkerResponses.FAILED,
           message: 'batch size must be an integer between 1 and 1000',
         },
       ]);
@@ -304,7 +304,7 @@ describe('market.worker', () => {
       expect(responses()).toHaveLength(2);
       expect(lastResponse()).toEqual({
         runId: 1,
-        state: WorkerStateTypes.FAILED,
+        state: WorkerResponses.FAILED,
         message: 'Failed to execute tick',
       });
     });

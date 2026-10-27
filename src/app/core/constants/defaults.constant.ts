@@ -8,12 +8,14 @@ export const MIN_UPDATES_PER_BATCH: number = 1;
 export const MAX_UPDATES_PER_BATCH: number = 1_000;
 export const MIN_INSTRUMENT_COUNT: number = 1;
 export const MAX_INSTRUMENT_COUNT: number = 50;
+
 export const DEFAULT_INSTRUMENT_COUNT: number = 5;
 export const DEFAULT_BATCH_INTERVAL_MS: number = 500;
 export const DEFAULT_UPDATES_PER_BATCH: number = 100;
-export const DEFAULT_SETTINGS: IProducerSettings = {
+
+export const DEFAULT_SETTINGS: IProducerSettings = Object.freeze({
   instrumentCount: DEFAULT_INSTRUMENT_COUNT,
   updatesPerBatch: DEFAULT_UPDATES_PER_BATCH,
   batchIntervalMs: DEFAULT_BATCH_INTERVAL_MS,
-};
+});
 export const FIELDS_PER_UPDATE: number = 7;
