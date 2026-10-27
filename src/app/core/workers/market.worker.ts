@@ -7,25 +7,27 @@ import {validateCommand, validateSettings} from '../utils/producer-settings-vali
 import {IValidation} from '../../shared/interfaces/validation.interface';
 import {IWorkerResponse} from '../../shared/interfaces/worker-response.interface';
 import {WorkerStateTypes} from '../enums/worker-state-types.enum';
-import {PRE_RUN_ID} from '../constants/defaults.constant';
-import { instantiate } from '../../../../wasm/build/market-generator.js';
+import {FIELDS_PER_UPDATE, PRE_RUN_ID} from '../constants/defaults.constant';
+import {instantiate} from '../../../../wasm/build/market-generator.js';
+import {IMarketUpdate} from '../../shared/interfaces/market-update.interface';
+import {IInstrumentTotals} from '../../shared/interfaces/instrument-totals.interface';
+import {IInstrumentMetrics} from '../../shared/interfaces/instrument-metrics.interface';
 
 type MarketGenerator = Awaited<ReturnType<typeof instantiate>>;
 
-let LAST_COMMAND: WorkerCommands;
-let LAST_SETTINGS: IProducerSettings;
-let LAST_RUN_ID: number = PRE_RUN_ID;
-let TIMER: number | null = null;
+let lastAppliedSettings: IProducerSettings;
+let lastRunId: number = PRE_RUN_ID;
+let timerId: number | null = null;
+let generator: MarketGenerator | null = null;
+let totals: IInstrumentTotals[] = createTotals(0);
 
 const generatorReady: Promise<MarketGenerator> = loadGenerator();
 
 async function loadGenerator(): Promise<MarketGenerator> {
   const url = new URL('wasm/market-generator.wasm', self.location.href);
   const module = await WebAssembly.compileStreaming(fetch(url));
-  return instantiate(module, { env: {} });
+  return instantiate(module, {env: {}});
 }
-
-let generator: MarketGenerator | null = null;
 
 addEventListener('message', (event: MessageEvent<IWorkerRequest>) => {
   const actionValidation: IValidation = validateCommand(event.data.command);
@@ -35,49 +37,56 @@ addEventListener('message', (event: MessageEvent<IWorkerRequest>) => {
     return handleError(actionValidation.message);
   }
 
-  if (!LAST_SETTINGS && !event.data.settings) {
+  if (!lastAppliedSettings && !event.data.settings) {
     return handleError('No settings were provided');
   }
 
-  if (event.data.settings) {
+  if (event.data.command === WorkerCommands.APPLY && event.data.settings) {
     const settingsValidation: IValidation = validateSettings(event.data.settings);
 
     if (!settingsValidation.isValid) {
-      return handleError(actionValidation.message);
+      return handleError(settingsValidation.message);
     }
 
-    LAST_SETTINGS = event.data.settings;
+    lastAppliedSettings = event.data.settings;
   }
 
-  LAST_COMMAND = event.data.command;
-
-  switch (LAST_COMMAND) {
-    case WorkerCommands.APPLY: onApply(); break;
-    case WorkerCommands.PAUSE: onPause(); break;
-    case WorkerCommands.RESUME: onResume(); break;
+  switch (event.data.command) {
+    case WorkerCommands.APPLY:
+      void onApply();
+      break;
+    case WorkerCommands.PAUSE:
+      onPause();
+      break;
+    case WorkerCommands.RESUME:
+      onResume();
+      break;
   }
 });
 
-function dispatchEvent(event: IWorkerResponse): void {
-  return postMessage(event);
+function emitEvent(event: IWorkerResponse): void {
+  postMessage(event);
 }
 
 async function onApply(): Promise<void> {
-  console.log('Apply');
-  LAST_RUN_ID++;
+  lastRunId++;
+  generator = null
 
-  if (TIMER) {
-    clearInterval(TIMER);
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
   }
 
-  const currentRunId: number = LAST_RUN_ID;
+  const currentRunId: number = lastRunId;
+
+  totals = createTotals(lastAppliedSettings.instrumentCount);
 
   try {
     const loaded = await generatorReady;
 
-    if (currentRunId !== LAST_RUN_ID) return;
+    if (currentRunId !== lastRunId) return;
 
-    loaded.init(LAST_SETTINGS.instrumentCount, crypto.getRandomValues(new Uint32Array(1))[0]);
+    loaded.init(lastAppliedSettings.instrumentCount, crypto.getRandomValues(new Uint32Array(1))[0]);
     generator = loaded;
 
     run();
@@ -87,14 +96,14 @@ async function onApply(): Promise<void> {
 }
 
 function onPause(): void {
-  if (TIMER !== null) {
-    clearInterval(TIMER);
-    TIMER = null;
+  if (timerId !== null) {
+    clearInterval(timerId);
+    timerId = null;
   }
 }
 
 function onResume(): void {
-  if (TIMER !== null) {
+  if (timerId !== null || !generator) {
     return;
   }
 
@@ -102,8 +111,8 @@ function onResume(): void {
 }
 
 function run(): void {
-  tick(LAST_SETTINGS);
-  TIMER = setInterval(() => tick(LAST_SETTINGS), LAST_SETTINGS.batchIntervalMs);
+  tick(lastAppliedSettings);
+  timerId = setInterval(() => tick(lastAppliedSettings), lastAppliedSettings.batchIntervalMs);
 }
 
 function tick(settings: IProducerSettings): void {
@@ -111,15 +120,84 @@ function tick(settings: IProducerSettings): void {
     return;
   }
 
-  const batch = generator.generateBatch(settings.updatesPerBatch);
+  try {
+    const batch: Int32Array = generator.generateBatch(settings.updatesPerBatch);
+    const updates: IMarketUpdate[] = toMarketUpdates(batch);
 
-  console.log('batch', batch);
+    applyUpdates(totals, updates);
+
+    emitEvent({runId: lastRunId, state: WorkerStateTypes.UPDATE, instruments: toMetrics(totals)});
+  } catch (error) {
+    handleError(error instanceof Error ? error.message : 'Failed to execute tick');
+  }
+}
+
+function createTotals(instrumentCount: number): IInstrumentTotals[] {
+  return Array.from({length: instrumentCount}, () => ({
+    hasData: false,
+    lastTradePriceCents: 0,
+    bidPriceCents: 0,
+    askPriceCents: 0,
+    bidQuantity: 0,
+    askQuantity: 0,
+    volume: 0,
+    notionalCents: 0,
+  }));
+}
+
+function toMarketUpdates(batch: Int32Array): IMarketUpdate[] {
+  const timestamp = Date.now();
+  const updates: IMarketUpdate[] = [];
+  for (let i = 0; i < batch.length; i += FIELDS_PER_UPDATE) {
+    updates.push({
+      instrumentId: batch[i],
+      tradePriceCents: batch[i + 1],
+      tradeQuantity: batch[i + 2],
+      bidPriceCents: batch[i + 3],
+      askPriceCents: batch[i + 4],
+      bidQuantity: batch[i + 5],
+      askQuantity: batch[i + 6],
+      timestamp,
+    });
+  }
+  return updates;
+}
+
+function applyUpdates(totals: IInstrumentTotals[], updates: IMarketUpdate[]): void {
+  for (const update of updates) {
+    const t: IInstrumentTotals = totals[update.instrumentId];
+
+    t.hasData = true;
+    t.lastTradePriceCents = update.tradePriceCents;
+    t.bidPriceCents = update.bidPriceCents;
+    t.askPriceCents = update.askPriceCents;
+    t.bidQuantity = update.bidQuantity;
+    t.askQuantity = update.askQuantity;
+    t.volume += update.tradeQuantity;
+    t.notionalCents += update.tradePriceCents * update.tradeQuantity;
+  }
+}
+
+function toMetrics(totals: IInstrumentTotals[]): IInstrumentMetrics[] {
+  return totals.map((t, instrumentId) => {
+    const bookQuantity = t.bidQuantity + t.askQuantity;
+
+    return {
+      instrumentId,
+      lastTradePriceCents: t.hasData ? t.lastTradePriceCents : null,
+      spreadCents: t.hasData ? t.askPriceCents - t.bidPriceCents : null,
+      volume: t.volume,
+      vwapCents: t.volume > 0 ? t.notionalCents / t.volume : null,
+      imbalance: bookQuantity > 0 ? (t.bidQuantity - t.askQuantity) / bookQuantity : null,
+    };
+  });
 }
 
 function handleError(message: string): void {
-  if (TIMER) {
-    clearInterval(TIMER);
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
   }
 
-  return dispatchEvent({runId: LAST_RUN_ID, state: WorkerStateTypes.FAILED, message: message});
+  emitEvent({runId: lastRunId, state: WorkerStateTypes.FAILED, message: message});
 }

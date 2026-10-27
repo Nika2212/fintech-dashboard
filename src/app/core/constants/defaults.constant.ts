@@ -16,4 +16,4 @@ export const DEFAULT_SETTINGS: IProducerSettings = {
   updatesPerBatch: DEFAULT_UPDATES_PER_BATCH,
   batchIntervalMs: DEFAULT_BATCH_INTERVAL_MS,
 };
-
+export const FIELDS_PER_UPDATE: number = 7;
