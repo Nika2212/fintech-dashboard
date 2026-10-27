@@ -1,0 +1,12 @@
+@use "utils" as utils;
+@use "variables" as vars;
+
+:host {
+  @include utils.flex-row(flex-start, center);
+
+  padding-left: vars.$PADDING_LG;
+  padding-right: vars.$PADDING_LG;
+
+  width: 100%;
+  height: vars.$HEADER_HEIGHT;
+}

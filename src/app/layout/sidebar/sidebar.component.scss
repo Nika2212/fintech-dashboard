@@ -1,0 +1,14 @@
+@use "utils" as utils;
+@use "variables" as vars;
+
+:host {
+  @include utils.flex-column(flex-start, flex-start);
+
+  padding-left: vars.$PADDING_MD;
+  padding-right: vars.$PADDING_MD;
+
+  width: 320px;
+  height: 100vh;
+
+  border-right: 1px solid #37393f;
+}

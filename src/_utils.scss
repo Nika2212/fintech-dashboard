@@ -1,0 +1,20 @@
+@mixin fullscreen() {
+  width: 100vw;
+  height: 100vh;
+}
+
+@mixin flex-row($justify, $align, $gap: 0) {
+  display: flex;
+  flex-direction: row;
+  justify-content: $justify;
+  align-items: $align;
+  gap: $gap;
+}
+
+@mixin flex-column($justify, $align, $gap: 0) {
+  display: flex;
+  flex-direction: column;
+  justify-content: $justify;
+  align-items: $align;
+  gap: $gap;
+}

@@ -1,3 +1,13 @@
 <tui-root>
+  <div class="application">
+    <app-sidebar />
 
+    <main class="application__wrapper">
+      <app-header />
+
+      <section class="application__content">
+        <router-outlet></router-outlet>
+      </section>
+    </main>
+  </div>
 </tui-root>

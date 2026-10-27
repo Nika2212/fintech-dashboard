@@ -1,0 +1,23 @@
+@use "utils" as utils;
+@use "variables" as vars;
+
+.application {
+  @include utils.fullscreen;
+  @include utils.flex-row(flex-start, flex-start);
+
+  background-color: #222428;
+
+  &__wrapper {
+    width: auto;
+    height: 100%;
+
+    flex: 1;
+  }
+
+  &__content {
+    padding: vars.$PADDING_LG;
+
+    width: 100%;
+    height: calc(100% - vars.$HEADER_HEIGHT);
+  }
+}
