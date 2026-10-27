@@ -1,5 +1,20 @@
-/* You can add global styles to this file, and also import other style files */
+@import "normalize";
 
 * {
   box-sizing: border-box;
+}
+
+[tuiTheme='dark'] {
+  --tui-background-accent-1: #a7abfe;
+  --tui-background-accent-1-hover: #bcbffe;
+  --tui-background-accent-1-pressed: #9296f0;
+  --tui-text-primary-on-accent-1: #000000;
+  --tui-text-action: #a7abfe;
+  --tui-text-action-hover: #bcbffe;
+}
+
+button[tuiButton][data-size='m'],
+button[tuiButton][data-size='s'] {
+  font-size: 0.875rem;
+  font-weight: 600;
 }

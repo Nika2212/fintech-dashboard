@@ -1,0 +1,137 @@
+@use "utils" as utils;
+@use "variables" as vars;
+
+:host {
+  display: block;
+}
+
+.dashboard {
+  &__title {
+    margin: 0 0 1.25rem;
+
+    font: var(--tui-typography-heading-h5);
+  }
+
+  &__card {
+    @include utils.flex-column(flex-start, stretch, 1.25rem);
+
+    padding: 1.75rem 2rem;
+
+    border-radius: vars.$RADIUS_LG;
+    background: vars.$SURFACE_COLOR;
+  }
+
+  &__error {
+    width: 100%;
+  }
+
+  &__table-scroll {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  &__table {
+    width: 100%;
+
+    th,
+    td {
+      border: none;
+      background: transparent;
+      box-shadow: none;
+
+      &::after {
+        display: none;
+      }
+    }
+
+    thead th {
+      padding-bottom: 0.75rem;
+
+      border-bottom: 1px solid vars.$BORDER_COLOR;
+
+      color: var(--tui-text-secondary);
+      font: var(--tui-typography-body-s);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      transition: background-color var(--tui-duration, 300ms);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+    }
+
+    tbody th,
+    tbody td {
+      height: 3.25rem;
+    }
+
+    tbody tr:first-child > * {
+      padding-top: 0.75rem;
+    }
+  }
+
+  &__caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  &__symbol {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-align: start;
+  }
+
+  &__numeric {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__unavailable {
+    color: var(--tui-text-tertiary);
+  }
+
+  &__imbalance {
+    @include utils.flex-row(flex-end, center, 1rem);
+  }
+
+  &__imbalance-bar {
+    @include utils.flex-row(center, center);
+
+    width: 4.5rem;
+
+    progress {
+      width: 50%;
+      border-radius: 0;
+
+      &::-webkit-progress-value {
+        transition: none;
+      }
+
+      &::-moz-progress-bar {
+        transition: none;
+      }
+    }
+  }
+
+  &__imbalance-ask {
+    transform: scaleX(-1);
+  }
+
+  &__imbalance-value {
+    min-width: 3rem;
+
+    &--positive {
+      color: vars.$POSITIVE_COLOR;
+    }
+
+    &--negative {
+      color: vars.$NEGATIVE_COLOR;
+    }
+  }
+}

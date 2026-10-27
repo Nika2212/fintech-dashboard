@@ -7,6 +7,7 @@ import { WorkerCommands } from '../enums/worker-commands.enum';
 import { WorkerResponses } from '../enums/worker-responses.enum';
 import { WorkerStatuses } from '../enums/worker-statuses.enum';
 import { DEFAULT_SETTINGS } from '../constants/defaults.constant';
+import { createEmptyMetrics } from '../utils/instrument-metrics.util';
 import { IInstrumentMetrics } from '../../shared/interfaces/instrument-metrics.interface';
 import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
 import { IWorkerRequest } from '../../shared/interfaces/worker-request.interface';
@@ -15,7 +16,7 @@ import { IWorkerResponse } from '../../shared/interfaces/worker-response.interfa
 const SETTINGS: IProducerSettings = { instrumentCount: 2, updatesPerBatch: 10, batchIntervalMs: 100 };
 
 function metrics(volume: number): IInstrumentMetrics[] {
-  return [{ instrumentId: 0, lastTradePriceCents: 100, spreadCents: 1, volume, vwapCents: 100, imbalance: 0 }];
+  return [{ instrumentId: 0, symbol: 'ALFA', lastTradePriceCents: 100, spreadCents: 1, volume, vwapCents: 100, imbalance: 0 }];
 }
 
 function current<T>(stream: Observable<T>): T {
@@ -56,6 +57,10 @@ describe('MarketService', () => {
       expect(current(service.getProducerSettings())).not.toBe(DEFAULT_SETTINGS);
       expect(current(service.getWorkerStatus())).toBe(WorkerStatuses.RUNNING);
     });
+
+    it('shows a row per default instrument with unavailable values before data arrives', () => {
+      expect(current(service.getInstrumentMetrics())).toEqual(createEmptyMetrics(DEFAULT_SETTINGS.instrumentCount));
+    });
   });
 
   describe('apply', () => {
@@ -87,7 +92,7 @@ describe('MarketService', () => {
 
       service.apply(SETTINGS);
 
-      expect(current(service.getInstrumentMetrics())).toEqual([]);
+      expect(current(service.getInstrumentMetrics())).toEqual(createEmptyMetrics(SETTINGS.instrumentCount));
       expect(current(service.getErrorMessage())).toBeNull();
       expect(current(service.getWorkerStatus())).toBe(WorkerStatuses.RUNNING);
     });
@@ -111,7 +116,7 @@ describe('MarketService', () => {
       service.apply(SETTINGS);
       respond({ runId: 1, state: WorkerResponses.UPDATE, instruments: metrics(10) });
 
-      expect(current(service.getInstrumentMetrics())).toEqual([]);
+      expect(current(service.getInstrumentMetrics())).toEqual(createEmptyMetrics(SETTINGS.instrumentCount));
     });
 
     it('rejects failures from a previous run', () => {

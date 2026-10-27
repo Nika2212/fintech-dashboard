@@ -8,6 +8,7 @@ import { IValidation } from '../../shared/interfaces/validation.interface';
 import { IWorkerResponse } from '../../shared/interfaces/worker-response.interface';
 import { WorkerResponses } from '../enums/worker-responses.enum';
 import { FIELDS_PER_UPDATE, PRE_RUN_ID } from '../constants/defaults.constant';
+import { INSTRUMENT_SYMBOLS } from '../constants/instrument-symbols.constant';
 import { instantiate } from '../../../../wasm/build/market-generator.js';
 import { IMarketUpdate } from '../../shared/interfaces/market-update.interface';
 import { IInstrumentTotals } from '../../shared/interfaces/instrument-totals.interface';
@@ -100,7 +101,9 @@ async function startRun(runId: number, settings: IProducerSettings): Promise<voi
   } catch (error) {
     if (runId !== lastRunId) return;
 
-    handleError(error instanceof Error ? error.message : 'Failed to load the market generator');
+    const reason: string = error instanceof Error ? `: ${error.message}` : '';
+
+    handleError(`Could not load the market generator${reason}`);
   }
 }
 
@@ -194,6 +197,7 @@ function toMetrics(totals: IInstrumentTotals[]): IInstrumentMetrics[] {
 
     return {
       instrumentId: instrumentId,
+      symbol: INSTRUMENT_SYMBOLS[instrumentId],
       lastTradePriceCents: t.hasData ? t.lastTradePriceCents : null,
       spreadCents: t.hasData ? t.askPriceCents - t.bidPriceCents : null,
       volume: t.volume,

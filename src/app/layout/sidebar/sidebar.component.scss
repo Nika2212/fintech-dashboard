@@ -7,8 +7,63 @@
   padding-left: vars.$PADDING_MD;
   padding-right: vars.$PADDING_MD;
 
-  width: 320px;
+  width: vars.$SIDEBAR_WIDTH;
   height: 100vh;
 
-  border-right: 1px solid #37393f;
+  border-right: 1px solid vars.$BORDER_COLOR;
+}
+
+.sidebar {
+  &__brand {
+    @include utils.flex-column(center, center);
+
+    width: 100%;
+    height: vars.$BRAND_HEIGHT;
+
+    h1 {
+      font-size: 42px;
+
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+  }
+
+  &__navigation {
+    @include utils.flex-column(flex-start, flex-start);
+
+    width: 100%;
+
+    &-item {
+      @include utils.flex-row(flex-start, center);
+
+      padding-left: vars.$PADDING_SM;
+
+      width: 100%;
+      height: 60px;
+
+      border-radius: 16px;
+      color: #b1b2b5;
+
+      font-size: 14px;
+      font-weight: 600;
+
+      tui-icon {
+        margin-right: 6px;
+        margin-bottom: -1px;
+
+        color: #b1b2b5;
+      }
+
+      &--selected {
+        background-color: #a7abfe;
+
+        color: #000000;
+
+        tui-icon {
+          color: #000000;
+
+        }
+      }
+    }
+  }
 }

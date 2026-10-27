@@ -116,7 +116,7 @@ describe('market.worker', () => {
       expect(lastResponse()).toEqual({
         runId: 1,
         state: WorkerResponses.FAILED,
-        message: 'Wasm is not available',
+        message: 'Could not load the market generator: Wasm is not available',
       });
     });
 
@@ -125,7 +125,7 @@ describe('market.worker', () => {
       await startWorker();
       await apply();
 
-      expect(lastResponse().message).toBe('Failed to load the market generator');
+      expect(lastResponse().message).toBe('Could not load the market generator');
     });
 
     it('starts only the latest run when several applies arrive while Wasm is loading', async () => {
@@ -154,7 +154,7 @@ describe('market.worker', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(responses()).toEqual([
-        { runId: 2, state: WorkerResponses.FAILED, message: 'Wasm is not available' },
+        { runId: 2, state: WorkerResponses.FAILED, message: 'Could not load the market generator: Wasm is not available' },
       ]);
     });
   });
@@ -391,6 +391,7 @@ describe('market.worker', () => {
 
       expect(lastResponse().instruments?.[0]).toEqual({
         instrumentId: 0,
+        symbol: 'ALFA',
         lastTradePriceCents: 10200,
         spreadCents: 4,
         volume: 40,
@@ -404,6 +405,7 @@ describe('market.worker', () => {
 
       expect(lastResponse().instruments?.[1]).toEqual({
         instrumentId: 1,
+        symbol: 'BETA',
         lastTradePriceCents: null,
         spreadCents: null,
         volume: 0,

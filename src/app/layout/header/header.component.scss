@@ -4,9 +4,31 @@
 :host {
   @include utils.flex-row(flex-start, center);
 
+  flex-shrink: 0;
+
   padding-left: vars.$PADDING_LG;
   padding-right: vars.$PADDING_LG;
 
   width: 100%;
   height: vars.$HEADER_HEIGHT;
+
+  border-bottom: 1px solid vars.$BORDER_COLOR;
+}
+
+.header {
+  &__controls {
+    @include utils.flex-row(flex-start, center, 1rem);
+  }
+
+  &__status {
+    padding: 0 0.875rem;
+    height: var(--tui-height-s);
+
+    border-radius: 999px;
+    background: vars.$SURFACE_COLOR;
+
+    font: var(--tui-typography-body-s);
+    font-weight: 600;
+    white-space: nowrap;
+  }
 }

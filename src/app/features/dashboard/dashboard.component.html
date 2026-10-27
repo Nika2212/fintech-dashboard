@@ -1,1 +1,95 @@
-<p>dashboard works!</p>
+<h2 class="dashboard__title">Dashboard</h2>
+
+@if (view$ | async; as view) {
+  <section tuiCardLarge class="dashboard__card" aria-labelledby="instruments-title">
+    <header tuiHeader class="dashboard__header">
+      <hgroup tuiTitle>
+        <h3 id="instruments-title">Instruments</h3>
+        <p tuiSubtitle>{{ view.instruments.length }} instruments · totals since the current run started</p>
+      </hgroup>
+    </header>
+
+    @if (view.errorMessage) {
+      <div tuiNotification appearance="negative" role="alert" class="dashboard__error">
+        {{ view.errorMessage }}
+      </div>
+    }
+
+    <div class="dashboard__table-scroll">
+      <table tuiTable size="m" class="dashboard__table">
+        <caption class="dashboard__caption">Instrument metrics</caption>
+        <thead>
+          <tr>
+            <th tuiTh scope="col">Instrument</th>
+            <th tuiTh scope="col" class="dashboard__numeric">Last price</th>
+            <th tuiTh scope="col" class="dashboard__numeric">Bid–ask spread</th>
+            <th tuiTh scope="col" class="dashboard__numeric">Volume</th>
+            <th tuiTh scope="col" class="dashboard__numeric">VWAP</th>
+            <th tuiTh scope="col" class="dashboard__numeric">Book Imbalance</th>
+          </tr>
+        </thead>
+        <tbody tuiTbody [data]="view.instruments">
+          @for (instrument of view.instruments; track instrument.instrumentId) {
+            <tr tuiTr>
+              <th tuiTd scope="row" class="dashboard__symbol">{{ instrument.symbol }}</th>
+              <td tuiTd class="dashboard__numeric">
+                @if (instrument.lastTradePriceCents !== null) {
+                  {{ instrument.lastTradePriceCents | centsToDollars | tuiAmount: 'USD' }}
+                } @else {
+                  <span class="dashboard__unavailable">Not available</span>
+                }
+              </td>
+              <td tuiTd class="dashboard__numeric">
+                @if (instrument.spreadCents !== null) {
+                  {{ instrument.spreadCents | centsToDollars | tuiAmount: 'USD' }}
+                } @else {
+                  <span class="dashboard__unavailable">Not available</span>
+                }
+              </td>
+              <td tuiTd class="dashboard__numeric">{{ instrument.volume | tuiFormatNumber }}</td>
+              <td tuiTd class="dashboard__numeric">
+                @if (instrument.vwapCents !== null) {
+                  {{ instrument.vwapCents | centsToDollars | tuiAmount: 'USD' }}
+                } @else {
+                  <span class="dashboard__unavailable">Not available</span>
+                }
+              </td>
+              <td tuiTd class="dashboard__numeric">
+                @if (instrument.imbalance !== null) {
+                  <span class="dashboard__imbalance">
+                    <span class="dashboard__imbalance-bar" aria-hidden="true">
+                      <progress
+                        tuiProgressBar
+                        size="xs"
+                        max="1"
+                        class="dashboard__imbalance-ask"
+                        color="#fb9c72"
+                        [value]="instrument.imbalance < 0 ? -instrument.imbalance : 0"
+                      ></progress>
+                      <progress
+                        tuiProgressBar
+                        size="xs"
+                        max="1"
+                        color="#a7abfe"
+                        [value]="instrument.imbalance > 0 ? instrument.imbalance : 0"
+                      ></progress>
+                    </span>
+                    <span
+                      class="dashboard__imbalance-value"
+                      [class.dashboard__imbalance-value--positive]="instrument.imbalance > 0"
+                      [class.dashboard__imbalance-value--negative]="instrument.imbalance < 0"
+                    >
+                      {{ instrument.imbalance | tuiAmount: '' : 'start' : 'always' }}
+                    </span>
+                  </span>
+                } @else {
+                  <span class="dashboard__unavailable">Not available</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

@@ -1,1 +1,23 @@
-<p>header works!</p>
+@if (status$ | async; as status) {
+  <div class="header__controls">
+    <span role="status" class="header__status" [tuiStatus]="statusView(status).color">
+      Producer: {{ statusView(status).label }}
+    </span>
+
+    @if (status === statuses.PAUSED) {
+      <button tuiButton type="button" size="s" iconStart="@tui.play" (click)="resume()">Resume</button>
+    } @else {
+      <button
+        tuiButton
+        type="button"
+        size="s"
+        appearance="secondary"
+        iconStart="@tui.pause"
+        [disabled]="status !== statuses.RUNNING"
+        (click)="pause()"
+      >
+        Pause
+      </button>
+    }
+  </div>
+}

@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, PRE_RUN_ID } from '../constants/defaults.constant';
 import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
 import { IWorkerResponse } from '../../shared/interfaces/worker-response.interface';
 import { IInstrumentMetrics } from '../../shared/interfaces/instrument-metrics.interface';
+import { createEmptyMetrics } from '../utils/instrument-metrics.util';
 
 @Injectable({ providedIn: 'root' })
 export class MarketService {
@@ -44,7 +45,7 @@ export class MarketService {
   public apply(settings: IProducerSettings = this.producerSettings$.value): void {
     this.runId++;
     this.producerSettings$.next({ ...settings });
-    this.instrumentMetrics$.next([]);
+    this.instrumentMetrics$.next(createEmptyMetrics(settings.instrumentCount));
     this.errorMessage$.next(null);
     this.workerStatus$.next(WorkerStatuses.RUNNING);
 

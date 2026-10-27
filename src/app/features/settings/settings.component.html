@@ -1,1 +1,73 @@
-<p>settings works!</p>
+<h2 class="settings__title">Settings</h2>
+
+<section tuiCardLarge class="settings__card" aria-labelledby="producer-title">
+  <header tuiHeader>
+    <hgroup tuiTitle>
+      <h3 id="producer-title">Producer</h3>
+      <p tuiSubtitle>Changes take effect when you apply them and start a new run</p>
+    </hgroup>
+  </header>
+
+  <form tuiForm="m" class="settings__form" [formGroup]="form" (ngSubmit)="apply()">
+    <tui-textfield>
+      <label tuiLabel for="instrumentCount">
+        Instrument count ({{ limits.instrumentCount.min }}–{{ limits.instrumentCount.max }})
+      </label>
+      <input
+        tuiInputNumber
+        id="instrumentCount"
+        formControlName="instrumentCount"
+        [min]="limits.instrumentCount.min"
+        [max]="limits.instrumentCount.max"
+        [tuiNumberFormat]="{ precision: 0 }"
+      />
+    </tui-textfield>
+    <tui-error formControlName="instrumentCount" />
+
+    <tui-textfield>
+      <label tuiLabel for="updatesPerBatch">
+        Updates per batch ({{ limits.updatesPerBatch.min }}–{{ limits.updatesPerBatch.max }})
+      </label>
+      <input
+        tuiInputNumber
+        id="updatesPerBatch"
+        formControlName="updatesPerBatch"
+        [min]="limits.updatesPerBatch.min"
+        [max]="limits.updatesPerBatch.max"
+        [tuiNumberFormat]="{ precision: 0 }"
+      />
+    </tui-textfield>
+    <tui-error formControlName="updatesPerBatch" />
+
+    <tui-textfield>
+      <label tuiLabel for="batchIntervalMs">
+        Batch interval, ms ({{ limits.batchIntervalMs.min }}–{{ limits.batchIntervalMs.max }})
+      </label>
+      <input
+        tuiInputNumber
+        id="batchIntervalMs"
+        formControlName="batchIntervalMs"
+        [min]="limits.batchIntervalMs.min"
+        [max]="limits.batchIntervalMs.max"
+        [tuiNumberFormat]="{ precision: 0 }"
+      />
+    </tui-textfield>
+    <tui-error formControlName="batchIntervalMs" />
+
+    <p class="settings__rate" aria-live="polite">
+      @if (nominalRate(); as rate) {
+        About {{ rate | tuiFormatNumber }} updates per second across all instruments
+      }
+    </p>
+
+    <footer class="settings__actions">
+      <button tuiButton type="submit" size="m" iconStart="@tui.check">Apply</button>
+    </footer>
+
+    @if (applied()) {
+      <div tuiNotification appearance="positive" role="status" size="m">
+        Applied. A new run started with these settings.
+      </div>
+    }
+  </form>
+</section>

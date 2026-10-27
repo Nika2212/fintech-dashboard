@@ -5,19 +5,23 @@
   @include utils.fullscreen;
   @include utils.flex-row(flex-start, flex-start);
 
-  background-color: #222428;
+  background-color: vars.$BACKGROUND_COLOR;
 
   &__wrapper {
-    width: auto;
+    @include utils.flex-column(flex-start, stretch);
+
+    min-width: 0;
     height: 100%;
 
     flex: 1;
   }
 
   &__content {
-    padding: vars.$PADDING_LG;
+    padding: 40px vars.$PADDING_LG vars.$PADDING_LG;
 
     width: 100%;
     height: calc(100% - vars.$HEADER_HEIGHT);
+
+    overflow-y: auto;
   }
 }

@@ -6,12 +6,13 @@
     "start": "npm run wasm:build && ng serve",
     "build": "npm run wasm:build && ng build",
     "watch": "npm run wasm:build && ng build --watch --configuration development",
-    "test": "ng test",
+    "test": "ng test --watch=false",
     "wasm:build": "asc --config wasm/asconfig.json --target release",
     "wasm:build:debug": "asc --config wasm/asconfig.json --target debug",
     "wasm:test": "npm run wasm:build && vitest run --config wasm/vitest.config.mts",
     "wasm:coverage": "npm run wasm:build && vitest run --config wasm/vitest.config.mts --coverage",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "test:coverage": "ng test --watch=false --coverage"
   },
   "prettier": {
     "printWidth": 100,

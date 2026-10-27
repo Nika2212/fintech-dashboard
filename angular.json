@@ -90,7 +90,9 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "setupFiles": ["src/test-setup.ts"]
+            "setupFiles": ["src/test-setup.ts"],
+            "coverageInclude": ["src/app/**"],
+            "coverageThresholds": { "statements": 100, "branches": 100, "functions": 100, "lines": 100 }
           }
         },
         "lint": {
