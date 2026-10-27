@@ -3,7 +3,7 @@
 An Angular app that shows live metrics for fictional financial instruments. A WebAssembly
 generator, running inside a Web Worker, produces simulated trades and bid/ask snapshots.
 
-- **Live demo:** https://nika2212.github.io/fintech-dashboard/
+- **Live demo:** _Railway URL — add after the first deploy_
 - **Repository:** https://github.com/Nika2212/fintech-dashboard
 
 ## Pages
@@ -59,6 +59,7 @@ DashboardComponent ┤ MarketService ──► market.worker.ts ─────�
 | `npm ci` | Installs dependencies |
 | `npm start` | Builds the Wasm module, then serves the app at http://localhost:4200 |
 | `npm run build` | Builds the Wasm module and a production build into `dist/` |
+| `npm run start:prod` | Serves the production build from `dist/` on `$PORT` (default 3000), as on Railway |
 | `npm test` | Runs the Angular unit tests |
 | `npm run test:coverage` | Same, with coverage; fails below 100% |
 | `npm run wasm:test` | Builds and tests the Wasm generator |
@@ -83,7 +84,19 @@ Timers are faked, so no test waits in real time.
 
 ## Deployment
 
-`.github/workflows/deploy.yml` runs lint and both test suites on every push and pull request.
-On a push to `main` it then builds the app and publishes it to GitHub Pages.
+The app is hosted on [Railway](https://railway.com), which redeploys on every push to `main`
+through its GitHub integration. `railway.json` sets the commands:
 
-One-time setup: in the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
+- **Build:** `npm run build` compiles the Wasm module, then the Angular production build.
+- **Start:** `npm run start:prod` serves `dist/fintech-dashboard/browser` with
+  [`serve`](https://www.npmjs.com/package/serve) on Railway's `PORT`. It falls back to
+  `index.html` for deep links such as `/settings`, and serves `.wasm` files as `application/wasm`,
+  which `WebAssembly.compileStreaming` requires.
+
+`.github/workflows/ci.yml` runs lint, both test suites with coverage, and a production build on
+every push and pull request.
+
+One-time setup in Railway:
+1. Create a project from this GitHub repository.
+2. In the service settings, turn on **Wait for CI**, so a commit deploys only after CI passes.
+3. Under **Networking**, generate a public domain, and put it in the "Live demo" link above.
