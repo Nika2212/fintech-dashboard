@@ -15,7 +15,7 @@ import { seedRandom } from './random';
  */
 export function init(count: i32, seed: u32): void {
   if (count < MIN_INSTRUMENTS || count > MAX_INSTRUMENTS) {
-    throw new Error('instrumentCount must be an integer between 1 and 50');
+    throw new Error('InstrumentCount must be an integer between 1 and 50');
   }
   seedRandom(seed);
   resetMarket(count);

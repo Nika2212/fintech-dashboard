@@ -23,33 +23,9 @@ export class MarketService {
 
 
   constructor() {
-    this.setEvents();
-  }
-
-  private setEvents(): void {
-    this.marketWorkerService.onMessage()
-      .subscribe((response: IWorkerResponse) => {
-        if (response.state === WorkerStateTypes.UPDATE && Array.isArray(response.samples)) {
-          this.aggregateAndUpdate(response.runId, response.samples);
-        } else if (response.state === WorkerStateTypes.FAILED) {
-          // Notify app that business error hapenned
-        }
-      });
-  }
-
-  private aggregateAndUpdate(runId: number, samples: IMarketSample[]): void {
-
-  }
-
-  public setSettings(settings: IProducerSettings): void {
-    this.settings = settings;
-  }
-
-  public getSettings(): IProducerSettings {
-    return this.settings;
-  }
-
-  public setDefaultSettings(): void {
-    this.settings = SETTINGS_DEFAULT;
+    // this.marketWorkerService.dispatch({
+    //   command: WorkerCommands.APPLY,
+    //   settings: this.settings
+    // })
   }
 }

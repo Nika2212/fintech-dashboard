@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
-    "build": "ng build",
-    "watch": "ng build --watch --configuration development",
+    "start": "npm run wasm:build && ng serve",
+    "build": "npm run wasm:build && ng build",
+    "watch": "npm run wasm:build ng build --watch --configuration development",
     "test": "ng test",
     "wasm:build": "asc --config wasm/asconfig.json --target release",
     "wasm:build:debug": "asc --config wasm/asconfig.json --target debug",
