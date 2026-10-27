@@ -87,7 +87,13 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "webWorkerTsConfig": "tsconfig.worker.json"
+            "setupFiles": ["src/test-setup.ts"]
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
           }
         }
       }

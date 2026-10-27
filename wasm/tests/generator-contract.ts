@@ -30,7 +30,7 @@ export function generatorContract(name: string, load: () => Promise<GeneratorApi
       });
 
       it.each([0, -1, 51])('rejects instrument count %i', (count) => {
-        expect(() => gen.init(count, 1)).toThrow(/instrumentCount must be/);
+        expect(() => gen.init(count, 1)).toThrow(/InstrumentCount must be/);
       });
 
       it.each([1, 50])('accepts instrument count %i', (count) => {

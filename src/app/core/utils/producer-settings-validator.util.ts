@@ -1,5 +1,5 @@
-import {WorkerCommands} from '../enums/worker-commands.enum';
-import {IProducerSettings} from '../../shared/interfaces/producer-settings.interface';
+import { WorkerCommands } from '../enums/worker-commands.enum';
+import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
 import {
   MAX_UPDATES_PER_BATCH,
   MAX_INSTRUMENT_COUNT,
@@ -7,7 +7,7 @@ import {
   MIN_INSTRUMENT_COUNT,
   MIN_BATCH_INTERVAL_MS, MIN_UPDATES_PER_BATCH
 } from '../constants/defaults.constant';
-import {IValidation} from '../../shared/interfaces/validation.interface';
+import { IValidation } from '../../shared/interfaces/validation.interface';
 
 function inRange(value: number, min: number, max: number): boolean {
   return value >= min && value <= max;

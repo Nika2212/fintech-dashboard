@@ -1,17 +1,17 @@
 /// <reference lib="webworker" />
 
-import {IWorkerRequest} from '../../shared/interfaces/worker-request.interface';
-import {WorkerCommands} from '../enums/worker-commands.enum';
-import {IProducerSettings} from '../../shared/interfaces/producer-settings.interface';
-import {validateCommand, validateSettings} from '../utils/producer-settings-validator.util';
-import {IValidation} from '../../shared/interfaces/validation.interface';
-import {IWorkerResponse} from '../../shared/interfaces/worker-response.interface';
-import {WorkerStateTypes} from '../enums/worker-state-types.enum';
-import {FIELDS_PER_UPDATE, PRE_RUN_ID} from '../constants/defaults.constant';
-import {instantiate} from '../../../../wasm/build/market-generator.js';
-import {IMarketUpdate} from '../../shared/interfaces/market-update.interface';
-import {IInstrumentTotals} from '../../shared/interfaces/instrument-totals.interface';
-import {IInstrumentMetrics} from '../../shared/interfaces/instrument-metrics.interface';
+import { IWorkerRequest } from '../../shared/interfaces/worker-request.interface';
+import { WorkerCommands } from '../enums/worker-commands.enum';
+import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
+import { validateCommand, validateSettings } from '../utils/producer-settings-validator.util';
+import { IValidation } from '../../shared/interfaces/validation.interface';
+import { IWorkerResponse } from '../../shared/interfaces/worker-response.interface';
+import { WorkerStateTypes } from '../enums/worker-state-types.enum';
+import { FIELDS_PER_UPDATE, PRE_RUN_ID } from '../constants/defaults.constant';
+import { instantiate } from '../../../../wasm/build/market-generator.js';
+import { IMarketUpdate } from '../../shared/interfaces/market-update.interface';
+import { IInstrumentTotals } from '../../shared/interfaces/instrument-totals.interface';
+import { IInstrumentMetrics } from '../../shared/interfaces/instrument-metrics.interface';
 
 type MarketGenerator = Awaited<ReturnType<typeof instantiate>>;
 
@@ -26,7 +26,8 @@ const generatorReady: Promise<MarketGenerator> = loadGenerator();
 async function loadGenerator(): Promise<MarketGenerator> {
   const url = new URL('wasm/market-generator.wasm', self.location.href);
   const module = await WebAssembly.compileStreaming(fetch(url));
-  return instantiate(module, {env: {}});
+
+  return instantiate(module, { env: {} });
 }
 
 addEventListener('message', (event: MessageEvent<IWorkerRequest>) => {
@@ -89,7 +90,7 @@ async function onApply(): Promise<void> {
     loaded.init(lastAppliedSettings.instrumentCount, crypto.getRandomValues(new Uint32Array(1))[0]);
     generator = loaded;
 
-    run();
+    run(loaded);
   } catch (error) {
     handleError(error instanceof Error ? error.message : 'Failed to load the market generator');
   }
@@ -107,33 +108,29 @@ function onResume(): void {
     return;
   }
 
-  run();
+  run(generator);
 }
 
-function run(): void {
-  tick(lastAppliedSettings);
-  timerId = setInterval(() => tick(lastAppliedSettings), lastAppliedSettings.batchIntervalMs);
+function run(generator: MarketGenerator): void {
+  timerId = setInterval(() => tick(generator, lastAppliedSettings), lastAppliedSettings.batchIntervalMs);
+  tick(generator, lastAppliedSettings);
 }
 
-function tick(settings: IProducerSettings): void {
-  if (!generator) {
-    return;
-  }
-
+function tick(generator: MarketGenerator, settings: IProducerSettings): void {
   try {
     const batch: Int32Array = generator.generateBatch(settings.updatesPerBatch);
     const updates: IMarketUpdate[] = toMarketUpdates(batch);
 
     applyUpdates(totals, updates);
 
-    emitEvent({runId: lastRunId, state: WorkerStateTypes.UPDATE, instruments: toMetrics(totals)});
+    emitEvent({ runId: lastRunId, state: WorkerStateTypes.UPDATE, instruments: toMetrics(totals) });
   } catch (error) {
     handleError(error instanceof Error ? error.message : 'Failed to execute tick');
   }
 }
 
 function createTotals(instrumentCount: number): IInstrumentTotals[] {
-  return Array.from({length: instrumentCount}, () => ({
+  return Array.from({ length: instrumentCount }, () => ({
     hasData: false,
     lastTradePriceCents: 0,
     bidPriceCents: 0,
@@ -183,7 +180,7 @@ function toMetrics(totals: IInstrumentTotals[]): IInstrumentMetrics[] {
     const bookQuantity = t.bidQuantity + t.askQuantity;
 
     return {
-      instrumentId,
+      instrumentId: instrumentId,
       lastTradePriceCents: t.hasData ? t.lastTradePriceCents : null,
       spreadCents: t.hasData ? t.askPriceCents - t.bidPriceCents : null,
       volume: t.volume,
@@ -199,5 +196,5 @@ function handleError(message: string): void {
     timerId = null;
   }
 
-  emitEvent({runId: lastRunId, state: WorkerStateTypes.FAILED, message: message});
+  emitEvent({ runId: lastRunId, state: WorkerStateTypes.FAILED, message: message });
 }

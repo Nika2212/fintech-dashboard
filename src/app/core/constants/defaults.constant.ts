@@ -1,4 +1,4 @@
-import {IProducerSettings} from '../../shared/interfaces/producer-settings.interface';
+import { IProducerSettings } from '../../shared/interfaces/producer-settings.interface';
 
 export const PRE_RUN_ID: number = 0;
 

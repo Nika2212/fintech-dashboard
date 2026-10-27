@@ -50,7 +50,7 @@ discards all previous state.
 The same `instrumentCount` and `seed` always produce exactly the same sequence of batches.
 Pass a fixed seed in tests and a random one (e.g. from `crypto.getRandomValues`) in the app.
 
-**Throws** `instrumentCount must be an integer between 1 and 50` when the count is out of range.
+**Throws** `InstrumentCount must be an integer between 1 and 50` when the count is out of range.
 
 ### `generateBatch(size: i32): Int32Array`
 
