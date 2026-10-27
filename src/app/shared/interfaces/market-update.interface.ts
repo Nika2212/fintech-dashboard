@@ -1,4 +1,4 @@
-export interface IMarketSample {
+export interface IMarketUpdate {
   instrumentId: number;
   tradePriceCents: number;
   tradeQuantity: number;

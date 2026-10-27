@@ -4,7 +4,7 @@ import {IWorkerRequest} from '../../shared/interfaces/worker-request.interface';
 import {WorkerCommands} from '../enums/worker-commands.enum';
 import {IProducerSettings} from '../../shared/interfaces/producer-settings.interface';
 import {validateCommand, validateSettings} from '../utils/producer-settings-validator.util';
-import {IValidationResponse} from '../../shared/interfaces/validation-response.interface';
+import {IValidation} from '../../shared/interfaces/validation.interface';
 import {IWorkerResponse} from '../../shared/interfaces/worker-response.interface';
 import {WorkerStateTypes} from '../enums/worker-state-types.enum';
 import {PRE_RUN_ID} from '../constants/defaults.constant';
@@ -28,7 +28,7 @@ async function loadGenerator(): Promise<MarketGenerator> {
 let generator: MarketGenerator | null = null;
 
 addEventListener('message', (event: MessageEvent<IWorkerRequest>) => {
-  const actionValidation: IValidationResponse = validateCommand(event.data.command);
+  const actionValidation: IValidation = validateCommand(event.data.command);
 
   // TODO : - Wrap into single entity checking
   if (!actionValidation.isValid) {
@@ -40,7 +40,7 @@ addEventListener('message', (event: MessageEvent<IWorkerRequest>) => {
   }
 
   if (event.data.settings) {
-    const settingsValidation: IValidationResponse = validateSettings(event.data.settings);
+    const settingsValidation: IValidation = validateSettings(event.data.settings);
 
     if (!settingsValidation.isValid) {
       return handleError(actionValidation.message);
@@ -87,8 +87,6 @@ async function onApply(): Promise<void> {
 }
 
 function onPause(): void {
-  console.log('Pause');
-
   if (TIMER !== null) {
     clearInterval(TIMER);
     TIMER = null;
@@ -96,8 +94,7 @@ function onPause(): void {
 }
 
 function onResume(): void {
-  console.log('Resume');
-  if (TIMER === null) {
+  if (TIMER !== null) {
     return;
   }
 
@@ -105,12 +102,11 @@ function onResume(): void {
 }
 
 function run(): void {
-  requestBatchUpdate(LAST_SETTINGS);
-  TIMER = setInterval(() => requestBatchUpdate(LAST_SETTINGS), LAST_SETTINGS.batchInterval);
+  tick(LAST_SETTINGS);
+  TIMER = setInterval(() => tick(LAST_SETTINGS), LAST_SETTINGS.batchIntervalMs);
 }
 
-function requestBatchUpdate(settings: IProducerSettings): void {
-  console.log('requestBatchUpdate', settings);
+function tick(settings: IProducerSettings): void {
   if (!generator) {
     return;
   }

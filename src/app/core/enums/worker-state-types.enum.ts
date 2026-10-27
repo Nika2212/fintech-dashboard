@@ -1,4 +1,4 @@
 export enum WorkerStateTypes {
-  'UPDATE' = 'update',
-  'FAILED' = 'failed',
+  UPDATE = 'update',
+  FAILED = 'failed',
 }
